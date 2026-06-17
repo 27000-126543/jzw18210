@@ -8,6 +8,7 @@ export interface Attachment {
   size: number
   type: string
   url: string
+  data?: string
 }
 
 export interface Comment {
@@ -25,6 +26,22 @@ export interface ReadRecord {
   avatar: string
   department: string
   readAt: string
+}
+
+export type NotificationChannel = 'email' | 'sms'
+export type NotificationStatus = 'success' | 'failed' | 'pending'
+
+export interface NotificationRecord {
+  id: string
+  userId: string
+  userName: string
+  department: string
+  email: string
+  phone: string
+  channel: NotificationChannel
+  status: NotificationStatus
+  sentAt: string | null
+  errorMessage?: string
 }
 
 export interface Notice {
@@ -48,6 +65,7 @@ export interface Notice {
   readBy: ReadRecord[]
   emailNotified: boolean
   smsNotified: boolean
+  notificationRecords: NotificationRecord[]
 }
 
 export interface Employee {

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Notice, Employee } from '@/types'
-import { employees, initialNotices, departments } from '@/data/mockData'
+import type { Notice, Employee, NotificationRecord } from '@/types'
+import { employees, initialNotices, getTargetEmployees, getDepartmentName, departments } from '@/data/mockData'
 
 interface AuthState {
   currentUser: Employee | null
@@ -25,10 +25,60 @@ export const useAuthStore = create<AuthState>()(
   )
 )
 
+function generateNotificationRecords(
+  scope: Notice['scope'],
+  scopeDetail: string[],
+  emailEnabled: boolean,
+  smsEnabled: boolean
+): NotificationRecord[] {
+  const targets = getTargetEmployees(scope, scopeDetail)
+  const records: NotificationRecord[] = []
+  let idCounter = 0
+
+  for (const emp of targets) {
+    const deptName = departments.find((d) => d.id === emp.department)?.name ?? ''
+
+    if (emailEnabled) {
+      const failRate = Math.random()
+      const isFailed = failRate < 0.08
+      records.push({
+        id: `nr-${Date.now()}-${idCounter++}`,
+        userId: emp.id,
+        userName: emp.name,
+        department: deptName,
+        email: emp.email,
+        phone: emp.phone,
+        channel: 'email',
+        status: isFailed ? 'failed' : 'success',
+        sentAt: isFailed ? null : new Date().toISOString(),
+        errorMessage: isFailed ? '邮箱服务器连接超时' : undefined,
+      })
+    }
+
+    if (smsEnabled) {
+      const failRate = Math.random()
+      const isFailed = failRate < 0.05
+      records.push({
+        id: `nr-${Date.now()}-${idCounter++}`,
+        userId: emp.id,
+        userName: emp.name,
+        department: deptName,
+        email: emp.email,
+        phone: emp.phone,
+        channel: 'sms',
+        status: isFailed ? 'failed' : 'success',
+        sentAt: isFailed ? null : new Date().toISOString(),
+        errorMessage: isFailed ? '手机号格式异常或运营商延迟' : undefined,
+      })
+    }
+  }
+  return records
+}
+
 interface NoticeState {
   notices: Notice[]
-  addNotice: (notice: Notice) => void
-  updateNotice: (id: string, updates: Partial<Notice>) => void
+  addNotice: (notice: Notice, sendEmail: boolean, sendSms: boolean) => void
+  updateNotice: (id: string, updates: Partial<Notice>, sendEmail?: boolean, sendSms?: boolean) => void
   deleteNotice: (id: string) => void
   markAsRead: (noticeId: string, userId: string) => void
   addComment: (noticeId: string, comment: { id: string; userId: string; userName: string; content: string; createdAt: string }) => void
@@ -46,14 +96,48 @@ export const useNoticeStore = create<NoticeState>()(
     (set, get) => ({
       notices: initialNotices,
 
-      addNotice: (notice) =>
-        set((state) => ({ notices: [...state.notices, notice] })),
+      addNotice: (notice, sendEmail, sendSms) => {
+        const now = new Date().toISOString()
+        const shouldSendNotifications =
+          notice.status === 'published' &&
+          notice.priority === 'urgent' &&
+          (sendEmail || sendSms)
 
-      updateNotice: (id, updates) =>
+        const notificationRecords: NotificationRecord[] = shouldSendNotifications
+          ? generateNotificationRecords(notice.scope, notice.scopeDetail, sendEmail, sendSms)
+          : []
+
         set((state) => ({
-          notices: state.notices.map((n) =>
-            n.id === id ? { ...n, ...updates, updatedAt: new Date().toISOString() } : n
-          ),
+          notices: [...state.notices, { ...notice, notificationRecords, updatedAt: now }],
+        }))
+      },
+
+      updateNotice: (id, updates, sendEmail, sendSms) =>
+        set((state) => ({
+          notices: state.notices.map((n) => {
+            if (n.id !== id) return n
+            const now = new Date().toISOString()
+
+            let newNotificationRecords = n.notificationRecords
+            const becomingPublished = updates.status === 'published' && n.status !== 'published'
+
+            if (becomingPublished && n.priority === 'urgent' && (sendEmail || sendSms)) {
+              const extra = generateNotificationRecords(
+                updates.scope ?? n.scope,
+                updates.scopeDetail ?? n.scopeDetail,
+                !!sendEmail,
+                !!sendSms
+              )
+              newNotificationRecords = [...newNotificationRecords, ...extra]
+            }
+
+            return {
+              ...n,
+              ...updates,
+              updatedAt: now,
+              notificationRecords: newNotificationRecords,
+            }
+          }),
         })),
 
       deleteNotice: (id) =>
@@ -109,7 +193,7 @@ export const useNoticeStore = create<NoticeState>()(
           notices: state.notices.map((n) => {
             if (n.status !== 'published' || !n.expiresAt) return n
             if (new Date(n.expiresAt) < new Date()) {
-              return { ...n, status: 'archived' as const }
+              return { ...n, status: 'archived' as const, updatedAt: new Date().toISOString() }
             }
             return n
           }),
@@ -120,7 +204,25 @@ export const useNoticeStore = create<NoticeState>()(
           notices: state.notices.map((n) => {
             if (n.status !== 'scheduled' || !n.scheduledAt) return n
             if (new Date(n.scheduledAt) <= new Date()) {
-              return { ...n, status: 'published' as const, publishedAt: new Date().toISOString() }
+              const now = new Date().toISOString()
+              const shouldSendNotifications =
+                n.priority === 'urgent' && (n.emailNotified || n.smsNotified)
+              const notificationRecords: NotificationRecord[] = shouldSendNotifications
+                ? generateNotificationRecords(
+                    n.scope,
+                    n.scopeDetail,
+                    n.emailNotified,
+                    n.smsNotified
+                  )
+                : n.notificationRecords
+
+              return {
+                ...n,
+                status: 'published' as const,
+                publishedAt: now,
+                updatedAt: now,
+                notificationRecords,
+              }
             }
             return n
           }),
@@ -133,8 +235,9 @@ export const useNoticeStore = create<NoticeState>()(
         if (!emp) return []
         return get().notices.filter((n) => {
           if (n.status !== 'published') return false
-          if (n.scope === 'all') return true
-          if (n.scope === 'department') return n.scopeDetail.includes(emp.department)
+          if (n.expiresAt && new Date(n.expiresAt) < new Date()) return false
+          if (n.scope === 'all') return emp.role !== 'admin'
+          if (n.scope === 'department') return emp.role !== 'admin' && n.scopeDetail.includes(emp.department)
           if (n.scope === 'person') return n.scopeDetail.includes(emp.id)
           return false
         })
@@ -153,3 +256,5 @@ export const useNoticeStore = create<NoticeState>()(
     { name: 'notice-data' }
   )
 )
+
+export { getDepartmentName }

@@ -1,4 +1,4 @@
-import type { Employee, Department, Notice } from '@/types'
+import type { Employee, Department, Notice, NoticeScope } from '@/types'
 
 export const departments: Department[] = [
   { id: 'dept-1', name: '技术部', memberIds: ['emp-1', 'emp-2', 'emp-3', 'emp-4'] },
@@ -19,6 +19,34 @@ export const employees: Employee[] = [
   { id: 'emp-10', name: '郑瑶', avatar: '', department: 'dept-3', email: 'zhengyao@corp.com', phone: '13800001010', role: 'employee' },
 ]
 
+export function getTargetEmployees(scope: NoticeScope, scopeDetail: string[]): Employee[] {
+  if (scope === 'all') {
+    return employees.filter((e) => e.role !== 'admin')
+  }
+  if (scope === 'department') {
+    return employees.filter(
+      (e) => e.role !== 'admin' && scopeDetail.includes(e.department)
+    )
+  }
+  if (scope === 'person') {
+    return employees.filter((e) => scopeDetail.includes(e.id))
+  }
+  return []
+}
+
+export function getTotalTargetReaders(scope: NoticeScope, scopeDetail: string[]): number {
+  return getTargetEmployees(scope, scopeDetail).length
+}
+
+export function isEmployeeInNoticeScope(employeeId: string, scope: NoticeScope, scopeDetail: string[]): boolean {
+  const emp = employees.find((e) => e.id === employeeId)
+  if (!emp) return false
+  if (scope === 'all') return emp.role !== 'admin'
+  if (scope === 'department') return emp.role !== 'admin' && scopeDetail.includes(emp.department)
+  if (scope === 'person') return scopeDetail.includes(emp.id)
+  return false
+}
+
 const now = new Date()
 const day = (offset: number) => {
   const d = new Date(now)
@@ -32,8 +60,8 @@ export const initialNotices: Notice[] = [
     title: '2026年端午节放假通知',
     richContent: '<p>各位同事：</p><p>根据国务院办公厅通知精神，现将2026年端午节放假安排通知如下：</p><p><strong>放假时间</strong>：6月19日（周五）至6月21日（周日），共3天。</p><p><strong>注意事项</strong>：</p><ol><li>请各部门提前做好工作交接</li><li>值班人员请保持手机畅通</li><li>祝大家端午安康！</li></ol>',
     attachments: [
-      { id: 'att-1', name: '端午节值班表.pdf', size: 256000, type: 'application/pdf', url: '#' },
-      { id: 'att-2', name: '假期安排详情.docx', size: 128000, type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', url: '#' },
+      { id: 'att-1', name: '端午节值班表.pdf', size: 256000, type: 'application/pdf', url: '#', data: undefined },
+      { id: 'att-2', name: '假期安排详情.docx', size: 128000, type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', url: '#', data: undefined },
     ],
     priority: 'important',
     scope: 'all',
@@ -60,6 +88,7 @@ export const initialNotices: Notice[] = [
     ],
     emailNotified: false,
     smsNotified: false,
+    notificationRecords: [],
   },
   {
     id: 'notice-2',
@@ -84,13 +113,33 @@ export const initialNotices: Notice[] = [
     ],
     emailNotified: true,
     smsNotified: true,
+    notificationRecords: [
+      { id: 'nr-1', userId: 'emp-2', userName: '李华', department: '技术部', email: 'lihua@corp.com', phone: '13800001002', channel: 'email', status: 'success', sentAt: day(-1) },
+      { id: 'nr-2', userId: 'emp-3', userName: '王芳', department: '技术部', email: 'wangfang@corp.com', phone: '13800001003', channel: 'email', status: 'success', sentAt: day(-1) },
+      { id: 'nr-3', userId: 'emp-4', userName: '赵强', department: '技术部', email: 'zhaoqiang@corp.com', phone: '13800001004', channel: 'email', status: 'success', sentAt: day(-1) },
+      { id: 'nr-4', userId: 'emp-5', userName: '刘洋', department: '市场部', email: 'liuyang@corp.com', phone: '13800001005', channel: 'email', status: 'success', sentAt: day(-1) },
+      { id: 'nr-5', userId: 'emp-6', userName: '陈静', department: '市场部', email: 'chenjing@corp.com', phone: '13800001006', channel: 'email', status: 'failed', sentAt: null, errorMessage: '邮箱服务器连接超时' },
+      { id: 'nr-6', userId: 'emp-7', userName: '杨帆', department: '市场部', email: 'yangfan@corp.com', phone: '13800001007', channel: 'email', status: 'success', sentAt: day(-1) },
+      { id: 'nr-7', userId: 'emp-8', userName: '周蕾', department: '财务部', email: 'zhoulei@corp.com', phone: '13800001008', channel: 'email', status: 'success', sentAt: day(-1) },
+      { id: 'nr-8', userId: 'emp-9', userName: '吴磊', department: '财务部', email: 'wulei@corp.com', phone: '13800001009', channel: 'email', status: 'success', sentAt: day(-1) },
+      { id: 'nr-9', userId: 'emp-10', userName: '郑瑶', department: '财务部', email: 'zhengyao@corp.com', phone: '13800001010', channel: 'email', status: 'success', sentAt: day(-1) },
+      { id: 'nr-10', userId: 'emp-2', userName: '李华', department: '技术部', email: 'lihua@corp.com', phone: '13800001002', channel: 'sms', status: 'success', sentAt: day(-1) },
+      { id: 'nr-11', userId: 'emp-3', userName: '王芳', department: '技术部', email: 'wangfang@corp.com', phone: '13800001003', channel: 'sms', status: 'success', sentAt: day(-1) },
+      { id: 'nr-12', userId: 'emp-4', userName: '赵强', department: '技术部', email: 'zhaoqiang@corp.com', phone: '13800001004', channel: 'sms', status: 'success', sentAt: day(-1) },
+      { id: 'nr-13', userId: 'emp-5', userName: '刘洋', department: '市场部', email: 'liuyang@corp.com', phone: '13800001005', channel: 'sms', status: 'failed', sentAt: null, errorMessage: '手机号格式异常' },
+      { id: 'nr-14', userId: 'emp-6', userName: '陈静', department: '市场部', email: 'chenjing@corp.com', phone: '13800001006', channel: 'sms', status: 'success', sentAt: day(-1) },
+      { id: 'nr-15', userId: 'emp-7', userName: '杨帆', department: '市场部', email: 'yangfan@corp.com', phone: '13800001007', channel: 'sms', status: 'success', sentAt: day(-1) },
+      { id: 'nr-16', userId: 'emp-8', userName: '周蕾', department: '财务部', email: 'zhoulei@corp.com', phone: '13800001008', channel: 'sms', status: 'success', sentAt: day(-1) },
+      { id: 'nr-17', userId: 'emp-9', userName: '吴磊', department: '财务部', email: 'wulei@corp.com', phone: '13800001009', channel: 'sms', status: 'success', sentAt: day(-1) },
+      { id: 'nr-18', userId: 'emp-10', userName: '郑瑶', department: '财务部', email: 'zhengyao@corp.com', phone: '13800001010', channel: 'sms', status: 'success', sentAt: day(-1) },
+    ],
   },
   {
     id: 'notice-3',
     title: '技术部第三季度OKR制定说明',
     richContent: '<p>技术部各位同事：</p><p>第三季度OKR制定工作即将开始，请注意以下安排：</p><ol><li>个人OKR提交截止日期：7月5日</li><li>团队OKR评审会议：7月8日</li><li>最终确认发布：7月10日</li></ol><p>请登录OKR系统填写，如有疑问请联系部门负责人。</p>',
     attachments: [
-      { id: 'att-3', name: 'OKR填写指南.pdf', size: 512000, type: 'application/pdf', url: '#' },
+      { id: 'att-3', name: 'OKR填写指南.pdf', size: 512000, type: 'application/pdf', url: '#', data: undefined },
     ],
     priority: 'normal',
     scope: 'department',
@@ -114,6 +163,7 @@ export const initialNotices: Notice[] = [
     ],
     emailNotified: false,
     smsNotified: false,
+    notificationRecords: [],
   },
   {
     id: 'notice-4',
@@ -136,6 +186,7 @@ export const initialNotices: Notice[] = [
     readBy: [],
     emailNotified: false,
     smsNotified: false,
+    notificationRecords: [],
   },
   {
     id: 'notice-5',
@@ -160,13 +211,14 @@ export const initialNotices: Notice[] = [
     ],
     emailNotified: false,
     smsNotified: false,
+    notificationRecords: [],
   },
   {
     id: 'notice-6',
     title: '年度财务审计配合通知',
     richContent: '<p>财务部各位同事：</p><p>外部审计将于7月1日开始，请配合以下工作：</p><ul><li>整理上半年财务凭证</li><li>准备银行对账单</li><li>确认应收应付账款</li></ul><p>审计期间请保持相关文件可随时调取。</p>',
     attachments: [
-      { id: 'att-4', name: '审计清单.xlsx', size: 96000, type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', url: '#' },
+      { id: 'att-4', name: '审计清单.xlsx', size: 96000, type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', url: '#', data: undefined },
     ],
     priority: 'important',
     scope: 'department',
@@ -188,6 +240,7 @@ export const initialNotices: Notice[] = [
     ],
     emailNotified: false,
     smsNotified: false,
+    notificationRecords: [],
   },
 ]
 
@@ -213,4 +266,13 @@ export function getDepartmentName(deptId: string): string {
 
 export function getEmployeeName(empId: string): string {
   return employees.find(e => e.id === empId)?.name ?? empId
+}
+
+export function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = (error) => reject(error)
+  })
 }
