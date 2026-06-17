@@ -52,7 +52,7 @@ function AccessDeniedPage({
 }
 
 export default function NoticeDetail() {
-  const { noticeId } = useParams<{ noticeId: string }>()
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const currentUser = useAuthStore((s) => s.currentUser)
   const { getNoticeById, markAsRead, addComment } = useNoticeStore()
@@ -60,6 +60,7 @@ export default function NoticeDetail() {
   const [commentText, setCommentText] = useState('')
   const hasMarkedRead = useRef(false)
 
+  const noticeId = id
   const notice = noticeId ? getNoticeById(noticeId) : undefined
 
   const accessAllowed =
@@ -80,33 +81,25 @@ export default function NoticeDetail() {
       <AccessDeniedPage
         icon={Lock}
         title="公告不存在"
-        onBack={() => navigate(-1)}
+        description="您访问的公告可能已被删除或不存在"
+        onBack={() => navigate('/employee', { replace: true })}
       />
     )
   }
 
   if (notice.status !== 'published') {
+    const statusText =
+      notice.status === 'draft' ? '该公告还是草稿，暂未发布'
+      : notice.status === 'scheduled' ? '该公告尚未到发布时间'
+      : notice.status === 'archived' ? '该公告已归档'
+      : '该公告尚未发布'
     return (
-      <div className="mx-auto max-w-4xl px-4 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center rounded-xl bg-white p-12 text-center shadow-card"
-        >
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-surface-100">
-            <Clock className="h-6 w-6 text-surface-400" />
-            <Lock className="-ml-1 h-6 w-6 text-surface-400" />
-          </div>
-          <p className="mb-6 text-lg font-medium text-brand-500">该公告尚未发布，暂不可查看</p>
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-1 rounded-lg bg-brand-500 px-4 py-2 text-sm text-white transition-colors hover:bg-brand-600"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            返回
-          </button>
-        </motion.div>
-      </div>
+      <AccessDeniedPage
+        icon={Clock}
+        title="公告暂不可查看"
+        description={statusText + '，请在发布后再查看'}
+        onBack={() => navigate('/employee', { replace: true })}
+      />
     )
   }
 
@@ -114,8 +107,9 @@ export default function NoticeDetail() {
     return (
       <AccessDeniedPage
         icon={Archive}
-        title="该公告已过有效期，已下线"
-        onBack={() => navigate(-1)}
+        title="该公告已过有效期"
+        description="公告已下线，您可在公告中心查看其他有效公告"
+        onBack={() => navigate('/employee', { replace: true })}
       />
     )
   }
@@ -130,7 +124,7 @@ export default function NoticeDetail() {
         icon={ShieldAlert}
         title="您不在该公告的接收范围内"
         description={`此公告仅限：${scopeInfo.text}`}
-        onBack={() => navigate(-1)}
+        onBack={() => navigate('/employee', { replace: true })}
       />
     )
   }
@@ -153,7 +147,7 @@ export default function NoticeDetail() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
       <button
-        onClick={() => navigate(-1)}
+        onClick={() => navigate('/employee')}
         className="mb-4 inline-flex items-center gap-1 text-sm text-surface-500 transition-colors hover:text-brand-500"
       >
         <ArrowLeft className="h-4 w-4" />

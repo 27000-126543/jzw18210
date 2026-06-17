@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Edit, Bell, Clock, Calendar, Users, CheckCircle2, XCircle, RefreshCw, Mail, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Edit, Bell, Clock, Calendar, Users, CheckCircle2, XCircle, RefreshCw, Mail, MessageSquare, Lock } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import { useNoticeStore } from '@/store'
 import { formatDate, getInitials, getTargetEmployees, getDepartmentName } from '@/data/mockData'
@@ -10,7 +10,7 @@ import ReadProgress from '@/components/ReadProgress'
 import type { Notice, NotificationRecord, NotificationChannel, NotificationStatus } from '@/types'
 
 export default function TrackingDetail() {
-  const { noticeId } = useParams<{ noticeId: string }>()
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { getNoticeById, sendReminder, toggleCommentEnabled, updateNotice } = useNoticeStore()
   const [activeTab, setActiveTab] = useState<'read' | 'unread' | 'reach'>('read')
@@ -18,6 +18,7 @@ export default function TrackingDetail() {
   const [reminderToast, setReminderToast] = useState<{ show: boolean; count: number }>({ show: false, count: 0 })
   const [resendToast, setResendToast] = useState<{ show: boolean; count: number }>({ show: false, count: 0 })
 
+  const noticeId = id
   const notice = getNoticeById(noticeId ?? '')
 
   const targetEmployees = useMemo(() => {
@@ -110,20 +111,24 @@ export default function TrackingDetail() {
     return (
       <div className="p-8 max-w-7xl mx-auto">
         <button
-          onClick={() => navigate('/admin')}
-          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-surface-500 hover:text-brand-500"
+          onClick={() => navigate('/admin', { replace: true })}
+          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-surface-500 hover:text-brand-500 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回列表
+          返回公告管理
         </button>
-        <div className="flex flex-col items-center justify-center py-24">
-          <p className="mb-4 text-lg text-surface-500">公告不存在</p>
+        <div className="flex flex-col items-center justify-center rounded-xl bg-white p-16 text-center shadow-card">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-surface-100">
+            <Lock className="h-8 w-8 text-surface-400" />
+          </div>
+          <p className="mb-2 text-lg font-medium text-brand-500">公告不存在</p>
+          <p className="mb-6 text-sm text-surface-400">您访问的公告可能已被删除或不存在</p>
           <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm text-white hover:bg-brand-600"
+            onClick={() => navigate('/admin', { replace: true })}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            返回
+            返回公告管理
           </button>
         </div>
       </div>
